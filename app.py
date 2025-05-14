@@ -89,45 +89,43 @@ if uploaded_file is not None:
 
     st.markdown("---")
 
-    # Target Column Selection
-    target = st.text_input("🎯 Enter your target column for ML modeling (leave blank to skip):")
+    # Target Column Selection (Dropdown for safety)
+    st.subheader("🎯 Choose your target column for ML modeling (optional)")
+    target = st.selectbox("Select target column (or skip for just analysis):", [""] + list(df.columns))
 
-    if target:
-        if target in df.columns:
-            st.subheader(f"🧠 ML Model: Predicting `{target}`")
-            try:
-                X = df.drop(columns=[target])
-                y = df[target]
+    if target != "":
+        st.subheader(f"🧠 ML Model: Predicting `{target}`")
+        try:
+            X = df.drop(columns=[target])
+            y = df[target]
 
-                X = pd.get_dummies(X, drop_first=True)
+            X = pd.get_dummies(X, drop_first=True)
 
-                # Encode target if needed
-                if not pd.api.types.is_numeric_dtype(y):
-                    y = pd.factorize(y)[0]
+            # Encode target if needed
+            if not pd.api.types.is_numeric_dtype(y):
+                y = pd.factorize(y)[0]
 
-                X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-                model = RandomForestRegressor()
-                model.fit(X_train, y_train)
-                y_pred = model.predict(X_test)
-                rmse = np.sqrt(mean_squared_error(y_test, y_pred))
+            model = RandomForestRegressor()
+            model.fit(X_train, y_train)
+            y_pred = model.predict(X_test)
+            rmse = np.sqrt(mean_squared_error(y_test, y_pred))
 
-                st.success(f"✅ Model Trained. RMSE: {rmse:.2f}")
+            st.success(f"✅ Model Trained. RMSE: {rmse:.2f}")
 
-                importances = model.feature_importances_
-                feat_imp = pd.DataFrame({'Feature': X.columns, 'Importance': importances})
-                feat_imp = feat_imp.sort_values(by='Importance', ascending=False)
+            importances = model.feature_importances_
+            feat_imp = pd.DataFrame({'Feature': X.columns, 'Importance': importances})
+            feat_imp = feat_imp.sort_values(by='Importance', ascending=False)
 
-                st.write("### 🔍 Top Feature Importances")
-                st.dataframe(feat_imp.head(10))
+            st.write("### 🔍 Top Feature Importances")
+            st.dataframe(feat_imp.head(10))
 
-                fig, ax = plt.subplots(figsize=(6, 4))
-                sns.barplot(x='Importance', y='Feature', data=feat_imp.head(10), ax=ax, palette='viridis')
-                st.pyplot(fig)
+            fig, ax = plt.subplots(figsize=(6, 4))
+            sns.barplot(x='Importance', y='Feature', data=feat_imp.head(10), ax=ax, palette='viridis')
+            st.pyplot(fig)
 
-            except Exception as e:
-                st.error(f"⚠️ Error during modeling: {e}")
-        else:
-            st.error("❌ Target column not found in the dataset.")
+        except Exception as e:
+            st.error(f"⚠️ Error during modeling: {e}")
 else:
     st.info("⬆️ Upload a CSV file to begin.")
