@@ -8,88 +8,100 @@ from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error
 
-st.set_page_config(page_title="📊 Data Insight & ML Tool", layout="wide")
+st.set_page_config(page_title="📊 Data Insights & ML Tool", layout="wide")
 
-# File uploader
-st.title("📊 Smart Data Analyzer & ML Assistant")
-uploaded_file = st.file_uploader("📁 Upload a CSV file", type=["csv"])
+st.title("📊 Data Analysis & ML Insight Generator")
+uploaded_file = st.file_uploader("Upload a CSV file", type=["csv"])
 
 if uploaded_file is not None:
     df = pd.read_csv(uploaded_file)
-    st.write("### 📋 Preview of Uploaded Data")
+    st.success("✅ File uploaded successfully!")
+
+    st.write("### 🧾 Preview of Uploaded Dataset")
     st.dataframe(df.head())
 
-    st.write("### 🧮 Dataset Summary Statistics")
-    st.dataframe(df.describe(include='all'))
+    st.markdown("---")
 
-    st.write("### 🧯 Missing Values Check")
-    st.dataframe(df.isnull().sum())
+    # Dataset Summary
+    st.write("## 📋 Dataset Summary")
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.write("### 📌 Shape")
+        st.write(f"Rows: {df.shape[0]}  \nColumns: {df.shape[1]}")
+
+        st.write("### 🧱 Column Types")
+        st.write(df.dtypes)
+
+    with col2:
+        st.write("### 🧮 Descriptive Stats (Numerical)")
+        st.dataframe(df.describe().T)
+
+    st.write("### 🧼 Missing Values")
+    st.dataframe(df.isnull().sum()[df.isnull().sum() > 0])
 
     st.markdown("---")
-    st.subheader("📊 Compact Visual Insights")
 
-    # Correlation Heatmap
-    st.write("#### 🔗 Correlation Heatmap (Numeric Features Only)")
+    # Data Visualizations
+    st.header("📊 Data Visualizations")
+
     numeric_df = df.select_dtypes(include=['number'])
+    cat_cols = df.select_dtypes(include=['object', 'category']).columns.tolist()
 
     if numeric_df.shape[1] >= 2:
-        corr = numeric_df.corr()
-        fig, ax = plt.subplots(figsize=(6, 4))  # Smaller figure
-        sns.heatmap(corr, annot=True, cmap='coolwarm', ax=ax)
+        st.subheader("📌 Correlation Heatmap (numeric only)")
+        fig, ax = plt.subplots(figsize=(6, 4))
+        sns.heatmap(numeric_df.corr(), annot=True, cmap='coolwarm', fmt=".2f", ax=ax)
         st.pyplot(fig)
     else:
-        st.warning("Not enough numeric columns for a heatmap.")
-
-    # Top Categorical Distributions
-    st.write("#### 🔠 Top Categorical Feature Distributions")
-    cat_cols = df.select_dtypes(include=['object']).columns.tolist()
+        st.warning("Not enough numeric columns for correlation heatmap.")
 
     if cat_cols:
-        for col in cat_cols[:2]:  # Only top 2 for compactness
-            st.write(f"📌 {col} value counts")
+        st.subheader("📌 Categorical Distributions")
+        for col in cat_cols[:2]:  # Limit to 2 top categorical features
+            st.markdown(f"**{col}**")
             fig, ax = plt.subplots(figsize=(6, 3))
-            df[col].value_counts().head(10).plot(kind='bar', ax=ax)
+            df[col].value_counts().head(10).plot(kind='bar', ax=ax, color='skyblue')
             ax.set_ylabel("Count")
+            ax.set_xlabel(col)
             st.pyplot(fig)
+
+    st.markdown("---")
+
+    # Simple Automated Insights (Text Summary)
+    st.subheader("💡 Automated Insights Summary")
+    num_summary = df.describe().T
+    top_numeric = num_summary.sort_values(by="std", ascending=False).head(2).index.tolist()
+    cat_summary = [col for col in cat_cols if df[col].nunique() < 10]
+
+    if top_numeric:
+        st.write(f"- **{top_numeric[0]}** and **{top_numeric[1]}** show the highest variability across rows.")
+    if cat_summary:
+        st.write(f"- **{cat_summary[0]}** has {df[cat_summary[0]].nunique()} unique values with '{df[cat_summary[0]].mode()[0]}' being the most common.")
+
+    st.write("This dataset appears to focus on:")
+    if "income" in df.columns:
+        st.markdown("- 💰 **Income-related attributes**, useful for customer segmentation or salary analysis.")
+    elif "sales" in df.columns:
+        st.markdown("- 🛍️ **Sales data**, potentially for forecasting or inventory decisions.")
     else:
-        st.info("No categorical columns available to visualize.")
+        st.write("- Generic tabular data that can be further analyzed by selecting a target column below.")
 
     st.markdown("---")
-    st.subheader("🧠 Automatic Insight Summary")
 
-    # Basic data storytelling
-    st.write("📌 **Data Insights Summary**")
-
-    total_rows = df.shape[0]
-    total_cols = df.shape[1]
-    num_missing = df.isnull().sum().sum()
-    num_cols = len(numeric_df.columns)
-    cat_cols_count = len(cat_cols)
-
-    st.markdown(f"""
-    - 🔢 The dataset contains **{total_rows} rows** and **{total_cols} columns**.
-    - 🧩 **{num_cols} numeric columns** and **{cat_cols_count} categorical columns** detected.
-    - 🕳️ Total **missing values** in the dataset: `{num_missing}`
-    - 📈 Top correlated features hint at possible relationships that may impact predictions.
-    - 📊 Category distribution plots reveal how values are concentrated (imbalanced or dominant).
-    """)
-
-    # ML Modeling Section
-    st.markdown("---")
-    st.subheader("🤖 Optional: ML Model Training")
-
-    target = st.text_input("🎯 Enter your target column (leave blank to skip modeling):")
+    # Target Column Selection
+    target = st.text_input("🎯 Enter your target column for ML modeling (leave blank to skip):")
 
     if target:
         if target in df.columns:
-            st.write(f"### 🔍 Modeling to Predict `{target}`")
-
+            st.subheader(f"🧠 ML Model: Predicting `{target}`")
             try:
                 X = df.drop(columns=[target])
                 y = df[target]
 
                 X = pd.get_dummies(X, drop_first=True)
 
+                # Encode target if needed
                 if not pd.api.types.is_numeric_dtype(y):
                     y = pd.factorize(y)[0]
 
@@ -97,20 +109,20 @@ if uploaded_file is not None:
 
                 model = RandomForestRegressor()
                 model.fit(X_train, y_train)
-
                 y_pred = model.predict(X_test)
                 rmse = np.sqrt(mean_squared_error(y_test, y_pred))
-                st.success(f"✅ Model Trained Successfully | RMSE: {rmse:.2f}")
+
+                st.success(f"✅ Model Trained. RMSE: {rmse:.2f}")
 
                 importances = model.feature_importances_
-                feat_imp_df = pd.DataFrame({'Feature': X.columns, 'Importance': importances})
-                feat_imp_df = feat_imp_df.sort_values(by='Importance', ascending=False)
+                feat_imp = pd.DataFrame({'Feature': X.columns, 'Importance': importances})
+                feat_imp = feat_imp.sort_values(by='Importance', ascending=False)
 
-                st.write("### 🔍 Feature Importances")
-                st.dataframe(feat_imp_df.head(10))
+                st.write("### 🔍 Top Feature Importances")
+                st.dataframe(feat_imp.head(10))
 
                 fig, ax = plt.subplots(figsize=(6, 4))
-                sns.barplot(x='Importance', y='Feature', data=feat_imp_df.head(10), ax=ax)
+                sns.barplot(x='Importance', y='Feature', data=feat_imp.head(10), ax=ax, palette='viridis')
                 st.pyplot(fig)
 
             except Exception as e:
@@ -118,4 +130,4 @@ if uploaded_file is not None:
         else:
             st.error("❌ Target column not found in the dataset.")
 else:
-    st.info("⬆️ Please upload a CSV file to begin analysis.")
+    st.info("⬆️ Upload a CSV file to begin.")
