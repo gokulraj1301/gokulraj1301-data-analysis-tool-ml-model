@@ -9,36 +9,37 @@ from sklearn.metrics import mean_squared_error
 from fpdf import FPDF
 from io import BytesIO
 
-st.set_page_config(page_title="📊 Data Insights & ML Tool", layout="wide")
+st.set_page_config(page_title="Data Insights & ML Tool", layout="wide")
 st.title("📊 Data Analysis & ML Insight Generator")
 
-# PDF Report Generator
+# PDF Report Generator (without emojis)
 def generate_pdf_report(df, summary_text):
     pdf = FPDF()
     pdf.set_auto_page_break(auto=True, margin=15)
     pdf.add_page()
     pdf.set_font("Arial", "B", 16)
-    pdf.cell(0, 10, "📊 Dataset Analysis Report", ln=True)
+    pdf.cell(0, 10, "Dataset Analysis Report", ln=True)
 
     pdf.set_font("Arial", "", 12)
     pdf.ln(10)
     pdf.cell(0, 10, f"Rows: {df.shape[0]}, Columns: {df.shape[1]}", ln=True)
     pdf.ln(5)
     pdf.set_font("Arial", "B", 12)
-    pdf.cell(0, 10, "🧱 Column Types:", ln=True)
+    pdf.cell(0, 10, "Column Types:", ln=True)
     pdf.set_font("Arial", "", 10)
     for col, dtype in df.dtypes.items():
         pdf.cell(0, 8, f"{col}: {dtype}", ln=True)
 
     pdf.ln(5)
     pdf.set_font("Arial", "B", 12)
-    pdf.cell(0, 10, "📌 Summary Insights:", ln=True)
+    pdf.cell(0, 10, "Summary Insights:", ln=True)
     pdf.set_font("Arial", "", 11)
     for line in summary_text.split("\n"):
         pdf.multi_cell(0, 8, line)
 
     buffer = BytesIO()
     pdf.output(buffer)
+    buffer.seek(0)
     return buffer
 
 uploaded_file = st.file_uploader("Upload a CSV file", type=["csv"])
@@ -52,34 +53,32 @@ if uploaded_file is not None:
 
     st.markdown("---")
 
-    # Dataset Summary
     st.write("## 📋 Dataset Summary")
     col1, col2 = st.columns(2)
 
     with col1:
-        st.write("### 📌 Shape")
+        st.write("### Shape")
         st.write(f"Rows: {df.shape[0]}  \nColumns: {df.shape[1]}")
 
-        st.write("### 🧱 Column Types")
+        st.write("### Column Types")
         st.write(df.dtypes)
 
     with col2:
-        st.write("### 🧮 Descriptive Stats (Numerical)")
+        st.write("### Descriptive Stats (Numerical)")
         st.dataframe(df.describe().T)
 
-    st.write("### 🧼 Missing Values")
+    st.write("### Missing Values")
     st.dataframe(df.isnull().sum()[df.isnull().sum() > 0])
 
     st.markdown("---")
 
-    # Data Visualizations
     st.header("📊 Data Visualizations")
 
     numeric_df = df.select_dtypes(include=['number'])
     cat_cols = df.select_dtypes(include=['object', 'category']).columns.tolist()
 
     if numeric_df.shape[1] >= 2:
-        st.subheader("📌 Correlation Heatmap (numeric only)")
+        st.subheader("Correlation Heatmap (numeric only)")
         fig, ax = plt.subplots(figsize=(6, 4))
         sns.heatmap(numeric_df.corr(), annot=True, cmap='coolwarm', fmt=".2f", ax=ax)
         st.pyplot(fig)
@@ -87,8 +86,8 @@ if uploaded_file is not None:
         st.warning("Not enough numeric columns for correlation heatmap.")
 
     if cat_cols:
-        st.subheader("📌 Categorical Distributions")
-        for col in cat_cols[:2]:  # Limit to 2 top categorical features
+        st.subheader("Categorical Distributions")
+        for col in cat_cols[:2]:
             st.markdown(f"**{col}**")
             fig, ax = plt.subplots(figsize=(6, 3))
             df[col].value_counts().head(10).plot(kind='bar', ax=ax, color='skyblue')
@@ -98,7 +97,6 @@ if uploaded_file is not None:
 
     st.markdown("---")
 
-    # Simple Automated Insights (Text Summary)
     st.subheader("💡 Automated Insights Summary")
     num_summary = df.describe().T
     top_numeric = num_summary.sort_values(by="std", ascending=False).head(2).index.tolist()
@@ -127,7 +125,6 @@ if uploaded_file is not None:
 
     st.markdown("---")
 
-    # Target Column Selection (Dropdown for safety)
     st.subheader("🎯 Choose your target column for ML modeling (optional)")
     target = st.selectbox("Select target column (or skip for just analysis):", [""] + list(df.columns))
 
@@ -139,7 +136,6 @@ if uploaded_file is not None:
 
             X = pd.get_dummies(X, drop_first=True)
 
-            # Encode target if needed
             if not pd.api.types.is_numeric_dtype(y):
                 y = pd.factorize(y)[0]
 
