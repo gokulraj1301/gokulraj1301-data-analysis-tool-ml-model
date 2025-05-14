@@ -3,14 +3,44 @@ import pandas as pd
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
-
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error
+from fpdf import FPDF
+from io import BytesIO
 
 st.set_page_config(page_title="📊 Data Insights & ML Tool", layout="wide")
-
 st.title("📊 Data Analysis & ML Insight Generator")
+
+# PDF Report Generator
+def generate_pdf_report(df, summary_text):
+    pdf = FPDF()
+    pdf.set_auto_page_break(auto=True, margin=15)
+    pdf.add_page()
+    pdf.set_font("Arial", "B", 16)
+    pdf.cell(0, 10, "📊 Dataset Analysis Report", ln=True)
+
+    pdf.set_font("Arial", "", 12)
+    pdf.ln(10)
+    pdf.cell(0, 10, f"Rows: {df.shape[0]}, Columns: {df.shape[1]}", ln=True)
+    pdf.ln(5)
+    pdf.set_font("Arial", "B", 12)
+    pdf.cell(0, 10, "🧱 Column Types:", ln=True)
+    pdf.set_font("Arial", "", 10)
+    for col, dtype in df.dtypes.items():
+        pdf.cell(0, 8, f"{col}: {dtype}", ln=True)
+
+    pdf.ln(5)
+    pdf.set_font("Arial", "B", 12)
+    pdf.cell(0, 10, "📌 Summary Insights:", ln=True)
+    pdf.set_font("Arial", "", 11)
+    for line in summary_text.split("\n"):
+        pdf.multi_cell(0, 8, line)
+
+    buffer = BytesIO()
+    pdf.output(buffer)
+    return buffer
+
 uploaded_file = st.file_uploader("Upload a CSV file", type=["csv"])
 
 if uploaded_file is not None:
@@ -74,18 +104,26 @@ if uploaded_file is not None:
     top_numeric = num_summary.sort_values(by="std", ascending=False).head(2).index.tolist()
     cat_summary = [col for col in cat_cols if df[col].nunique() < 10]
 
-    if top_numeric:
-        st.write(f"- **{top_numeric[0]}** and **{top_numeric[1]}** show the highest variability across rows.")
-    if cat_summary:
-        st.write(f"- **{cat_summary[0]}** has {df[cat_summary[0]].nunique()} unique values with '{df[cat_summary[0]].mode()[0]}' being the most common.")
+    insights_text = ""
 
-    st.write("This dataset appears to focus on:")
+    if top_numeric:
+        insights_text += f"- {top_numeric[0]} and {top_numeric[1]} show the highest variability.\n"
+    if cat_summary:
+        insights_text += f"- {cat_summary[0]} has {df[cat_summary[0]].nunique()} unique values with '{df[cat_summary[0]].mode()[0]}' most common.\n"
+
     if "income" in df.columns:
-        st.markdown("- 💰 **Income-related attributes**, useful for customer segmentation or salary analysis.")
+        insights_text += "- Income-related attributes, useful for segmentation or salary analysis.\n"
     elif "sales" in df.columns:
-        st.markdown("- 🛍️ **Sales data**, potentially for forecasting or inventory decisions.")
+        insights_text += "- Sales data, potentially for forecasting or inventory.\n"
     else:
-        st.write("- Generic tabular data that can be further analyzed by selecting a target column below.")
+        insights_text += "- General tabular dataset.\n"
+
+    st.text(insights_text)
+
+    # PDF Download Button
+    pdf_bytes = generate_pdf_report(df, insights_text)
+    st.download_button("📥 Download Insights as PDF", data=pdf_bytes.getvalue(),
+                       file_name="data_insights_report.pdf", mime="application/pdf")
 
     st.markdown("---")
 
