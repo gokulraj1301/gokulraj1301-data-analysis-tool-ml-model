@@ -4,71 +4,99 @@ import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-# File uploader widget
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import mean_squared_error
+
+st.set_page_config(page_title="Data Analysis & Insights Tool", layout="wide")
+
+# File uploader
+st.title("📊 Automated Data Analysis & ML Insights Tool")
 uploaded_file = st.file_uploader("Upload your CSV file", type=["csv"])
 
 if uploaded_file is not None:
-    # Read the uploaded CSV file into a DataFrame
     df = pd.read_csv(uploaded_file)
+    st.write("### 🧾 Uploaded Dataset")
+    st.dataframe(df.head())
 
-    # Show the uploaded data
-    st.write("### Uploaded Data", df.head())
+    st.write("### 📈 Data Summary")
+    st.write(df.describe(include='all'))
 
-    # Basic data analysis
-    st.write("### Data Summary")
-    st.write(df.describe())  # Basic summary statistics
-    st.write("### Missing Values")
-    st.write(df.isnull().sum())  # Check for missing values
+    st.write("### 🕳️ Missing Values")
+    st.write(df.isnull().sum())
 
-    # Data visualization
-    st.write("### Data Visualizations")
-    st.write("#### Correlation Heatmap")
-    corr = df.corr()
-    sns.heatmap(corr, annot=True, cmap='coolwarm')
-    st.pyplot()
+    # Data visualization section
+    st.write("## 📊 Data Visualizations")
 
-    # Pairplot (if applicable)
-    st.write("#### Pairplot")
-    sns.pairplot(df)
-    st.pyplot()
+    # Correlation Heatmap for numerical data
+    st.write("### 🔥 Correlation Heatmap (numeric features only)")
+    numeric_df = df.select_dtypes(include=['number'])
 
-    # Asking for target column for ML modeling
-    target = st.text_input("Enter your target column (or leave blank to skip ML modeling):")
+    if numeric_df.shape[1] >= 2:
+        corr = numeric_df.corr()
+        fig, ax = plt.subplots(figsize=(10, 6))
+        sns.heatmap(corr, annot=True, cmap='coolwarm', ax=ax)
+        st.pyplot(fig)
+    else:
+        st.warning("❌ Not enough numeric columns to compute a correlation heatmap.")
+
+    # Bar plot for top categorical columns
+    st.write("### 📊 Top Categorical Feature Distributions")
+    cat_cols = df.select_dtypes(include=['object']).columns.tolist()
+
+    if cat_cols:
+        for col in cat_cols[:3]:  # show top 3 categories
+            st.write(f"#### {col}")
+            fig, ax = plt.subplots()
+            df[col].value_counts().head(10).plot(kind='bar', ax=ax)
+            st.pyplot(fig)
+    else:
+        st.info("No categorical columns found to visualize.")
+
+    # Target input
+    target = st.text_input("🎯 Enter your target column for ML modeling (leave blank to skip):")
 
     if target:
         if target in df.columns:
-            st.write(f"### ML Model: Predicting {target}")
-            
-            # Example model training (Random Forest as placeholder)
-            from sklearn.model_selection import train_test_split
-            from sklearn.ensemble import RandomForestRegressor
-            from sklearn.metrics import mean_squared_error
+            st.write(f"### 🤖 ML Model: Predicting `{target}`")
 
-            # Preparing features and target
-            X = df.drop(columns=[target])
-            y = df[target]
+            try:
+                X = df.drop(columns=[target])
+                y = df[target]
 
-            # Split data into train and test sets
-            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+                # Convert categorical variables
+                X = pd.get_dummies(X, drop_first=True)
 
-            # Initialize and train the model
-            model = RandomForestRegressor()
-            model.fit(X_train, y_train)
+                # Remove non-numeric targets if regression
+                if not pd.api.types.is_numeric_dtype(y):
+                    y = pd.factorize(y)[0]
 
-            # Make predictions and evaluate the model
-            y_pred = model.predict(X_test)
-            rmse = np.sqrt(mean_squared_error(y_test, y_pred))
-            st.write(f"Root Mean Squared Error (RMSE): {rmse}")
+                # Train-test split
+                X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-            # Display feature importances
-            feature_importances = model.feature_importances_
-            feature_df = pd.DataFrame({
-                'Feature': X.columns,
-                'Importance': feature_importances
-            }).sort_values(by='Importance', ascending=False)
+                # Train Random Forest model
+                model = RandomForestRegressor()
+                model.fit(X_train, y_train)
 
-            st.write("### Feature Importances")
-            st.write(feature_df)
+                y_pred = model.predict(X_test)
+                rmse = np.sqrt(mean_squared_error(y_test, y_pred))
+                st.success(f"✅ Model Trained. RMSE: {rmse:.2f}")
 
+                # Feature importances
+                importances = model.feature_importances_
+                feat_imp_df = pd.DataFrame({'Feature': X.columns, 'Importance': importances})
+                feat_imp_df = feat_imp_df.sort_values(by='Importance', ascending=False)
+
+                st.write("### 💡 Feature Importances")
+                st.dataframe(feat_imp_df.head(10))
+
+                fig, ax = plt.subplots()
+                sns.barplot(x='Importance', y='Feature', data=feat_imp_df.head(10), ax=ax)
+                st.pyplot(fig)
+
+            except Exception as e:
+                st.error(f"⚠️ Error during modeling: {e}")
         else:
-            st.write("The entered target column does not exist in the dataset.")
+            st.error("❌ Target column not found in the dataset.")
+else:
+    st.info("⬆️ Upload a CSV file to begin.")
